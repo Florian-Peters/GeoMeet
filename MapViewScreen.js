@@ -30,7 +30,7 @@ const [initialRegionSet, setInitialRegionSet] = useState(false);
   };
 
   useEffect(() => {
-    const socket = io('http://13.51.150.219:3001');
+    const socket = io('http://18.144.63.70:3001');
 
     socket.on('connect', () => {
       console.log('Connected to server');
@@ -77,7 +77,7 @@ const [initialRegionSet, setInitialRegionSet] = useState(false);
 
     const fetchDummyLocation = async () => {
       try {
-        const response = await fetch('http://13.51.150.219:3001/api/dummyLocation');
+        const response = await fetch('http://18.144.63.70:3001/api/dummyLocation');
         const data = await response.json();
         setUserLocations(data);
       } catch (error) {
