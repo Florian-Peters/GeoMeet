@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, Modal, Alert, Image, Switch } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Text, TextInput, Button, Modal, Alert, Image, Switch } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import io from 'socket.io-client';
 import * as Location from 'expo-location';
+
 
 const MapViewScreen = ({ navigation, route }) => {
   const { logoUri } = route.params; // LogoUri vom Navigationsparameter erhalten
@@ -13,6 +14,7 @@ const MapViewScreen = ({ navigation, route }) => {
   const [input, setInput] = useState('');
   const [mapReady, setMapReady] = useState(false);
   const [gpsEnabled, setGpsEnabled] = useState(true); // Schalter für GPS aktiviert/deaktiviert
+const [initialRegionSet, setInitialRegionSet] = useState(false);
 
   const handleCreateUser = () => {
     if (input && input.length > 1) {
@@ -94,14 +96,33 @@ const MapViewScreen = ({ navigation, route }) => {
     };
   }, [username, gpsEnabled]);
 
+  const styles = StyleSheet.create({
+    button: {
+      backgroundColor: '#89ff55',
+      borderRadius: 50, // Dies macht den Button oval
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      alignItems: 'center', // Zentriert den Text horizontal
+      justifyContent: 'center', // Zentriert den Text vertikal
+    },
+    buttonText: {
+      color: 'white',
+    },
+  });
+  
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10 }}>
-        <Text>GPS aktivieren:</Text>
-        <Switch
-          value={gpsEnabled}
-          onValueChange={handleToggleGPS}
-        />
+      <View style={{ backgroundColor: "black", flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 5 }}>
+        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Shop')}>
+          <Text style={styles.buttonText}>Event Shop</Text>
+        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}> 
+          <Switch
+            value={gpsEnabled}
+            onValueChange={handleToggleGPS}
+          />
+          <Text style={{ color: gpsEnabled ? 'green' : 'red' }}>{gpsEnabled ? 'GPS An' : 'GPS Aus'}</Text>  
+        </View>
       </View>
       {!username ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -109,7 +130,7 @@ const MapViewScreen = ({ navigation, route }) => {
           <TextInput
             style={{
               height: 40,
-              borderColor: 'gray',
+              borderColor: 'black',
               borderWidth: 2,
               marginTop: 20,
               marginBottom: 20,
@@ -126,15 +147,24 @@ const MapViewScreen = ({ navigation, route }) => {
         </View>
       ) : (
         <MapView
-          style={{ flex: 1 }}
-          initialRegion={{
-            latitude: userLocations.length > 0 ? userLocations[0].latitude : 50.9375,
-            longitude: userLocations.length > 0 ? userLocations[0].longitude : 6.9603,
-            latitudeDelta: 0.02,
-            longitudeDelta: 0.02,
-          }}
-          onLayout={() => setMapReady(true)}
-        >
+  style={{ flex: 1 }}
+  initialRegion={
+    !initialRegionSet && myLocation
+      ? {
+          latitude: myLocation.latitude,
+          longitude: myLocation.longitude,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        }
+      : undefined
+  }
+  onLayout={() => {
+    setMapReady(true);
+    if (myLocation) {
+      setInitialRegionSet(true);
+    }
+  }}
+>
           {mapReady &&
             userLocations.map((user, index) => (
               <Marker
