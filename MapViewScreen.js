@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, Modal, Alert, Image } from 'react-native';
+import { View, Text, TextInput, Button, Modal, Alert, Image, Switch } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import io from 'socket.io-client';
 import * as Location from 'expo-location';
 
-const MapViewScreen = ({ navigation }) => {
+const MapViewScreen = ({ navigation, route }) => {
+  const { logoUri } = route.params; // LogoUri vom Navigationsparameter erhalten
+
   const [userLocations, setUserLocations] = useState([]);
   const [myLocation, setMyLocation] = useState(null);
   const [username, setUsername] = useState('');
   const [input, setInput] = useState('');
   const [mapReady, setMapReady] = useState(false);
+  const [gpsEnabled, setGpsEnabled] = useState(true); // Schalter für GPS aktiviert/deaktiviert
 
   const handleCreateUser = () => {
     if (input && input.length > 1) {
@@ -20,6 +23,10 @@ const MapViewScreen = ({ navigation }) => {
     }
   };
 
+  const handleToggleGPS = () => {
+    setGpsEnabled(!gpsEnabled);
+  };
+
   useEffect(() => {
     const socket = io('http://192.168.178.55:3001');
 
@@ -28,10 +35,10 @@ const MapViewScreen = ({ navigation }) => {
     });
 
     socket.on('updateLocation', (data) => {
-      console.log('Empfangene Standortaktualisierung:', data);
-      setUserLocations(data);
+      if (gpsEnabled) {
+        setUserLocations(data);
+      }
     });
-    
 
     const watchLocation = async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -51,18 +58,17 @@ const MapViewScreen = ({ navigation }) => {
 
           console.log('Aktuelle Koordinaten:', { latitude, longitude, username });
 
+          if (gpsEnabled) {
+            const userLocationData = {
+              latitude,
+              longitude,
+              username,
+              image: 'https://i.ibb.co/DzTJJDQ/Nadel-Geojam.png',
+            };
 
-
-          const userLocationData = {
-            latitude,
-            longitude,
-            username,
-            image: 'https://i.ibb.co/DzTJJDQ/Nadel-Geojam.png',
-          };
-
-          socket.emit('updateLocation', userLocationData);
-          setMyLocation(userLocationData);
-          
+            socket.emit('updateLocation', userLocationData);
+            setMyLocation(userLocationData);
+          }
         }
       );
     };
@@ -79,17 +85,24 @@ const MapViewScreen = ({ navigation }) => {
 
     fetchDummyLocation();
 
-    if (username) {
+    if (username && gpsEnabled) {
       watchLocation();
     }
 
     return () => {
       socket.disconnect();
     };
-  }, [username]);
+  }, [username, gpsEnabled]);
 
   return (
     <View style={{ flex: 1 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10 }}>
+        <Text>GPS aktivieren:</Text>
+        <Switch
+          value={gpsEnabled}
+          onValueChange={handleToggleGPS}
+        />
+      </View>
       {!username ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text>Geben Sie einen Benutzernamen ein:</Text>
@@ -102,7 +115,8 @@ const MapViewScreen = ({ navigation }) => {
               marginBottom: 20,
               paddingLeft: 15,
               paddingRight: 15,
-              width: '80%', }}
+              width: '80%',
+            }}
             onChangeText={text => setInput(text)}
           />
           <Button
@@ -114,8 +128,8 @@ const MapViewScreen = ({ navigation }) => {
         <MapView
           style={{ flex: 1 }}
           initialRegion={{
-            latitude: 50.9375,
-            longitude: 6.9603,
+            latitude: userLocations.length > 0 ? userLocations[0].latitude : 50.9375,
+            longitude: userLocations.length > 0 ? userLocations[0].longitude : 6.9603,
             latitudeDelta: 0.02,
             longitudeDelta: 0.02,
           }}
