@@ -4,7 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import MapViewScreen from './MapViewScreen';
 import { AppRegistry, StyleSheet,Platform,View } from 'react-native';
 import { Image } from 'react-native';
-import GPSContext from './GPSContext';
+import EventShopScreen from './EventShopScreen';
 
 const Stack = createStackNavigator();
 
@@ -51,6 +51,11 @@ const App = () => {
       initialParams={{ logoUri, gpsEnabled, setGpsEnabled }}
     />
     {/* Weitere Screens hier hinzufügen, falls gewünscht */}
+    <Stack.Screen
+       name="EventShop"
+       component={EventShopScreen}
+/>
+
   </Stack.Navigator>
 </NavigationContainer>
 
