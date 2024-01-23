@@ -33,7 +33,11 @@ const MapViewScreen = ({ navigation, route }) => {
   };
 
   useEffect(() => {
+<<<<<<< HEAD
     const socket = io('http://204.236.162.216:3001');
+=======
+    const socket = io('http://18.144.39.255:3001');
+>>>>>>> dd9d312 (Shop hinzugefügt)
 
     socket.on('connect', () => {
       console.log('Connected to server');
@@ -80,7 +84,11 @@ const MapViewScreen = ({ navigation, route }) => {
 
     const fetchDummyLocation = async () => {
       try {
+<<<<<<< HEAD
         const response = await fetch('http://204.236.162.216:3001/api/dummyLocation');
+=======
+        const response = await fetch('http://18.144.39.255:3001/api/dummyLocation');
+>>>>>>> dd9d312 (Shop hinzugefügt)
         const data = await response.json();
         setUserLocations(data);
       } catch (error) {
