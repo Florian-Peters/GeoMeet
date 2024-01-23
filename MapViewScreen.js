@@ -33,7 +33,7 @@ const MapViewScreen = ({ navigation, route }) => {
   };
 
   useEffect(() => {
-    const socket = io('http://18.144.39.255:3001');
+    const socket = io('http://204.236.162.216:3001');
 
     socket.on('connect', () => {
       console.log('Connected to server');
@@ -80,7 +80,7 @@ const MapViewScreen = ({ navigation, route }) => {
 
     const fetchDummyLocation = async () => {
       try {
-        const response = await fetch('http://18.144.39.255:3001/api/dummyLocation');
+        const response = await fetch('http://204.236.162.216:3001/api/dummyLocation');
         const data = await response.json();
         setUserLocations(data);
       } catch (error) {
