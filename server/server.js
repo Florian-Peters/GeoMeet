@@ -6,7 +6,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-let userLocationData = [];
+const userLocationDatavonH = [];
 const socketToUsernameMap = new Map();
 const eventLocations = [];
 
@@ -25,11 +25,12 @@ const removeEventLocation = (index) => {
 };
 
 io.on('connection', (socket) => {
-  io.emit('updateLocation', userLocationData);
+  console.log('Client connected');
+  io.emit('updateLocation', userLocationDatavonH);
   io.emit('updateEventLocations', eventLocations);
 
   socket.on('getLocations', () => {
-    io.emit('updateLocation', userLocationData);
+    io.emit('updateLocation', userLocationDatavonH);
   });
 
   socket.on('buyProduct', (data) => {
@@ -42,7 +43,7 @@ io.on('connection', (socket) => {
       if (index !== -1) {
         removeEventLocation(index);
       }
-    }, 30 * 1000);
+    }, 30 * 5000);
   });
 
   socket.on('updateLocation', (data) => {
@@ -53,27 +54,29 @@ io.on('connection', (socket) => {
       image: data.image,
     };
 
-    const existingUser = userLocationData.find((user) => user.username === data.username);
+    const existingUser = userLocationDatavonH.find((user) => user.username === data.username);
     if (existingUser) {
       Object.assign(existingUser, updatedUser);
     } else {
-      userLocationData.push(updatedUser);
+      userLocationDatavonH.push(updatedUser);
     }
 
+    // Update the map with the socket ID and username
     socketToUsernameMap.set(socket.id, data.username);
 
-    io.emit('updateLocation', userLocationData);
-    addEventLocation(data);
-  });
-
-  socket.on('clearEventLocation', ({ eventUsername }) => {
-    const index = eventLocations.findIndex((event) => event.username === eventUsername);
-    if (index !== -1) {
-      removeEventLocation(index);
-    }
+    io.emit('updateLocation', userLocationDatavonH);
   });
 
   socket.on('disconnect', () => {
+    console.log('Client disconnected');
+    // Remove the disconnected user from the list
+    const username = socketToUsernameMap.get(socket.id);
+    const index = userLocationDatavonH.findIndex((user) => user.username === username);
+    if (index !== -1) {
+      userLocationDatavonH.splice(index, 1);
+      io.emit('updateLocation', userLocationDatavonH);
+    }
+    // Remove the entry from the map
     socketToUsernameMap.delete(socket.id);
   });
 });

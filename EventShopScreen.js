@@ -23,16 +23,14 @@ const EventShopScreen = ({ navigation }) => {
   ];
 
   useEffect(() => {
-    const socketInstance = io('http://204.236.162.216:3001');
+    const socketInstance = io('http://192.168.178.55:3001');
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {
       console.log('Connected to server');
     });
 
-    socketInstance.on('updateLocation', (data) => {
-      setUserLocations(data);
-    });
+   
 
     return () => {
       socketInstance.disconnect();
