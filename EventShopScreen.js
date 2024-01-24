@@ -1,41 +1,123 @@
-import React from 'react';
-import { View, Text, Image, Button, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Image, Button, StyleSheet, FlatList, TouchableOpacity, TextInput } from 'react-native';
+import io from 'socket.io-client';
 
 const EventShopScreen = ({ navigation }) => {
+  const [socket, setSocket] = useState(null);
+  const [username, setUsername] = useState('');
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [userLocations, setUserLocations] = useState([]);
+  const eventUsernameRef = useRef('');
+
   const products = [
-    { id: '1', name: 'Produkt 1', price: 2000, priceImage: require('./assets/Bubble.png'), description: 'Kurze Beschreibung des Produkts 1', image: require('./assets/shop1.jpeg') },
-    { id: '2', name: 'Produkt 2', price: 2000, priceImage: require('./assets/Bubble.png'), description: 'Kurze Beschreibung des Produkts 2', image: require('./assets/shop1.jpeg') },
-    { id: '3', name: 'Produkt 3', price: 2000, priceImage: require('./assets/Bubble.png'), description: 'Kurze Beschreibung des Produkts 3', image: require('./assets/shop1.jpeg') },
-    { id: '4', name: 'Produkt 4', price: 2000, priceImage: require('./assets/Bubble.png'), description: 'Kurze Beschreibung des Produkts 4', image: require('./assets/shop1.jpeg') },
-    // Füge hier weitere Produkte hinzu
+    { 
+      id: '1', 
+      name: 'Produkt 1', 
+      price: 2000, 
+      image: 'https://i.ibb.co/DzTJJDQ/Nadel-Geojam.png',
+      priceImage: require('./assets/Bubble.png'), 
+      description: 'Kurze Beschreibung des Produkts 1',  
+    },
+    // Weitere Produkte...
   ];
 
-  const handleProductPress = (product) => {
-    // Hier könntest du die Navigation zu einer anderen Ansicht für eine umfangreichere Beschreibung implementieren
-    // Beispiel: navigation.navigate('ProductDetails', { product });
+  useEffect(() => {
+    const socketInstance = io('http://204.236.162.216:3001');
+    setSocket(socketInstance);
+
+    socketInstance.on('connect', () => {
+      console.log('Connected to server');
+    });
+
+    socketInstance.on('updateLocation', (data) => {
+      setUserLocations(data);
+    });
+
+    return () => {
+      socketInstance.disconnect();
+    };
+  }, []);
+
+  const clearEventLocation = (eventUsername) => {
+    if (socket) {
+      socket.emit('clearEventLocation', { eventUsername });
+    }
   };
+
+  const handleProductPress = (product) => {
+    const eventUsername = username || 'DefaultEventName'; // Verwende den eingegebenen Benutzernamen oder einen Standardwert
+    eventUsernameRef.current = eventUsername;
+  
+    const data = {
+      latitude: parseFloat(latitude),
+      longitude: parseFloat(longitude),
+      username: eventUsername,
+      image: product.image,
+    };
+  
+    if (socket) {
+      socket.emit('buyProduct', data); // Senden Sie eine neue Nachricht 'buyProduct' an den Server
+    }
+  };
+
+  useEffect(() => {
+    if (socket && userLocations.length > 0) {
+      const timerId = setTimeout(() => {
+        const eventUsername = eventUsernameRef.current;
+        clearEventLocation(eventUsername);
+      }, 30 * 1000); // 30 Sekunden in Millisekunden
+
+      // Stelle sicher, den Timer zu löschen, wenn die Komponente entladen wird
+      return () => clearTimeout(timerId);
+    }
+  }, [socket, userLocations]);
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Willkommen im Event Shop!</Text>
+
+      {/* TextInput-Feld für den Eventnamen */}
+      <Text style={styles.inputLabel}>Dein Benutzername:</Text>
+      <TextInput
+        style={styles.input}
+        onChangeText={setUsername}
+        value={username}
+      />
+
+      <Text style={styles.inputLabel}>Breitengrad:</Text>
+      <TextInput
+        style={styles.input}
+        onChangeText={setLatitude}
+        value={latitude}
+        keyboardType="numeric"
+      />
+
+      <Text style={styles.inputLabel}>Längengrad:</Text>
+      <TextInput
+        style={styles.input}
+        onChangeText={setLongitude}
+        value={longitude}
+        keyboardType="numeric"
+      />
+
       <FlatList
         data={products}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-            <TouchableOpacity onPress={() => handleProductPress(item)}>
-              <View style={styles.itemContainer}>
-                <Image style={styles.itemImage} source={item.image} />
-                <Text style={styles.itemName}>{item.name}</Text>
-                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                  <Text style={styles.itemPrice}>{item.price}</Text>
-                  <Image source={item.priceImage} style={{width: 20, height: 20}} />
-                </View>
-                <Text style={styles.itemDescription}>{item.description}</Text>
-                <Button title="IN DEN WARENKORB" onPress={() => {}} />
+          <TouchableOpacity onPress={() => handleProductPress(item)}>
+            <View style={styles.itemContainer}>
+              <Image style={styles.itemImage} source={{ uri: item.image }} />
+              <Text style={styles.itemName}>{item.name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.itemPrice}>{item.price}</Text>
+                <Image source={item.priceImage} style={{ width: 20, height: 20 }} />
               </View>
-            </TouchableOpacity>
-          )}
-          
+              <Text style={styles.itemDescription}>{item.description}</Text>
+              <Button title="BUY" onPress={() => handleProductPress(item)} />
+            </View>
+          </TouchableOpacity>
+        )}
       />
     </View>
   );
@@ -82,6 +164,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'white',
     marginBottom: 10,
+  },
+  inputLabel: {
+    fontSize: 16,
+    color: 'white',
+  },
+  input: {
+    height: 40,
+    width: '80%',
+    borderColor: 'gray',
+    borderWidth: 1,
+    marginBottom: 20,
+    color: 'white',
   },
 });
 

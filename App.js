@@ -1,13 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState,  } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import MapViewScreen from './MapViewScreen';
-<<<<<<< HEAD
 import { AppRegistry, StyleSheet,Platform,View } from 'react-native';
 import { Image } from 'react-native';
-=======
-import { AppRegistry, StyleSheet, Platform, View, Image } from 'react-native';
->>>>>>> dd9d312 (Shop hinzugefügt)
 import EventShopScreen from './EventShopScreen';
 
 const Stack = createStackNavigator();
@@ -25,15 +21,19 @@ const styles = StyleSheet.create({
 const App = () => {
   const logoUri = 'https://static.wixstatic.com/media/8299f7_6d97b890b6914f138622072d558db729~mv2.png/v1/fill/w_332,h_144,al_c,q_85,usm_0.66_1.00_0.01,enc_auto/Green_Type_Only_Logo.png';
   const [gpsEnabled, setGpsEnabled] = useState(true);
-
-  const LogoHeader = () => (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Image source={{ uri: logoUri }} style={styles.logo} />
-    </View>
-  );
+  const LogoHeader = () => {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+  <Image
+    source={{ uri: logoUri }}
+    style={styles.logo}
+  />
+</View>
+    
+    );
+  };
 
   return (
-<<<<<<< HEAD
 <NavigationContainer>
   <Stack.Navigator
     screenOptions={{
@@ -59,25 +59,6 @@ const App = () => {
   </Stack.Navigator>
 </NavigationContainer>
 
-=======
-    <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerTitle: () => <LogoHeader />,
-          headerStyle: { backgroundColor: 'black' },
-          headerTitleAlign: 'center',
-          headerShadowVisible: false,
-        }}
-      >
-        <Stack.Screen
-          name="MapView"
-          component={MapViewScreen}
-          initialParams={{ logoUri, gpsEnabled, setGpsEnabled }}
-        />
-        <Stack.Screen name="EventShop" component={EventShopScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
->>>>>>> dd9d312 (Shop hinzugefügt)
   );
 };
 
