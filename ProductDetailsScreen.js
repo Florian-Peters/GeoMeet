@@ -12,7 +12,7 @@ const ProductDetailsScreen = ({ route }) => {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    const socketInstance = io('http://192.168.178.55:3001');
+    const socketInstance = io('http://204.236.162.216:3001');
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {
