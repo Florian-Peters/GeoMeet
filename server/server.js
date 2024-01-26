@@ -33,7 +33,7 @@ io.on('connection', (socket) => {
     io.emit('updateLocation', userLocationDatavonH);
   });
 
-  socket.on('buyProduct', (data) => {
+  socket.on('confirmPurchase', (data) => {
     console.log('Received product purchase:', data);
 
     addEventLocation(data);

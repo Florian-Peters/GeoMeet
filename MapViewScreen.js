@@ -59,12 +59,14 @@ const MapViewScreen = ({ navigation, route }) => {
     });
 
     socket.on('updateLocation', (data) => {
+
       if (gpsEnabled) {
         setUserLocations(data);
       }
     });
 
     socket.on('updateEventLocations', (eventLocations) => {
+      
       setEventLocations(eventLocations);
     });
 
@@ -84,8 +86,6 @@ const MapViewScreen = ({ navigation, route }) => {
         (location) => {
           const { latitude, longitude } = location.coords;
 
-        
-
           if (gpsEnabled) {
             const userLocationData = {
               latitude,
@@ -93,6 +93,7 @@ const MapViewScreen = ({ navigation, route }) => {
               username,
               image: 'https://i.ibb.co/DzTJJDQ/Nadel-Geojam.png',
             };
+
 
             socket.emit('updateLocation', userLocationData);
             setMyLocation(userLocationData);
@@ -151,31 +152,62 @@ const MapViewScreen = ({ navigation, route }) => {
         </View>
       ) : (
         <MapView
-          style={{ flex: 1 }}
-          region={region}
-          onLayout={() => {
-            // entferne initialRegionSet und myLocation Logik
-          }}
-        >
-          {mapReady &&
-            eventLocations.map((event, index) => (
-              <MemoizedMarker key={index} event={event} />
-            ))}
-          {mapReady && myLocation && (
-            <Marker
-              coordinate={{
-                latitude: myLocation.latitude,
-                longitude: myLocation.longitude,
-              }}
-              title={`Mein Standort (${username})`}
-            >
-              <Image
-                source={require('./assets/NadelGeojam.png')}
-                style={{ width: 80, height: 80 }}
-              />
-            </Marker>
-          )}
-        </MapView>
+  style={{ flex: 1 }}
+  initialRegion={
+    !initialRegionSet && myLocation
+      ? {
+        latitude: myLocation.latitude,
+        longitude: myLocation.longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      }
+      : undefined
+  }
+  onLayout={() => {
+    setMapReady(true);
+    if (myLocation) {
+      setInitialRegionSet(true);
+    }
+  }}
+>
+  {mapReady &&
+    eventLocations.map((event, index) => (
+      <MemoizedMarker key={index} event={event} />
+    ))}
+  {mapReady &&
+    userLocations.map((user, index) => (
+      <Marker
+        key={index}
+        coordinate={{
+          latitude: user.latitude,
+          longitude: user.longitude,
+        }}
+        title={user.username}
+      >
+        {user.image && (
+          <Image
+            source={{ uri: user.image }}
+            style={{ width: 80, height: 80 }}
+          />
+        )}
+      </Marker>
+    ))}
+  {mapReady && myLocation && (
+    <Marker
+      coordinate={{
+        latitude: myLocation.latitude,
+        longitude: myLocation.longitude,
+      }}
+      title={`Mein Standort (${username})`}
+    >
+      <Image
+        source={require('./assets/NadelGeojam.png')}
+        style={{ width: 80, height: 80 }}
+      />
+    </Marker>
+  )}
+</MapView>
+
       )}
     </View>
   );
