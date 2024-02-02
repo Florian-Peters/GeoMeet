@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, Image, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import io from 'socket.io-client';
+import * as ImagePicker from 'expo-image-picker';
 
 const ProductDetailsScreen = ({ route }) => {
   const navigation = useNavigation();
@@ -10,9 +11,10 @@ const ProductDetailsScreen = ({ route }) => {
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
   const [socket, setSocket] = useState(null);
+  const [image, setImage] = useState(null);
 
   useEffect(() => {
-    const socketInstance = io('http://204.236.162.216:3001');
+    const socketInstance = io('http://192.168.178.55:3001');
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {
@@ -24,40 +26,97 @@ const ProductDetailsScreen = ({ route }) => {
     };
   }, []);
 
-  const handleProductPress = (product) => {
-    navigation.navigate('ProductDetails', { product });
-  };
+  useEffect(() => {
+    (async () => {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          alert('Sorry, we need camera roll permissions to make this work!');
+        }
+      }
+    })();
+  }, []);
 
-  const handleConfirmPurchase = () => {
-    const data = {
-      latitude: parseFloat(latitude),
-      longitude: parseFloat(longitude),
-      username: username,
-      image: product.image,
-    };
-
-    // Überprüfe, ob die Socket-Verbindung existiert und geöffnet ist
-    if (socket && socket.connected) {
-      // Sende die Daten an den Server
-      socket.emit('confirmPurchase', data);
-      console.log (data);
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+    
+    console.log(result); // Log the entire result object
+    
+  
+    if (!result.cancelled) {
+      setImage(result.assets[0].uri);
+      console.log('Selected image URI:', result.assets[0].uri); // Hinzugefügt für Debugging
     }
-
-    // Füge die Logik hinzu, um den Kauf mit den Daten zu verarbeiten
-    // ...
-
-    // Nachdem der Kauf verarbeitet wurde, kannst du zur vorherigen Seite navigieren
-    handleGoBack();
+    
   };
-
-  const handleGoBack = () => {
-    navigation.goBack();
+  
+  
+  const handleConfirmPurchase = async () => {
+    try {
+      if (image) {
+        let localUri = image;
+        let filename = localUri.split('/').pop();
+      
+        // Infer the type of the image
+        let match = /\.(\w+)$/.exec(filename);
+        let type = match ? `image/${match[1]}` : `image`;
+      
+        // Upload the image using the fetch and FormData APIs
+        let formData = new FormData();
+        // Assume "photo" is the name of the form field the server expects
+        formData.append('image', { uri: localUri, name: filename, type });
+        formData.append('latitude', latitude.toString());
+        formData.append('longitude', longitude.toString());
+      
+        const response = await fetch('http://192.168.178.55:3001/upload', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+  
+        const data = await response.text(); // Hier verwende text(), um den Antworttext zu erhalten
+        console.log('Image upload response:', data);
+  
+        // Versuche, die Antwort als JSON zu parsen
+        const jsonData = JSON.parse(data);
+        console.log('Parsed JSON response:', jsonData);
+  
+        if (socket && socket.connected) {
+          socket.emit('confirmPurchase', {
+            latitude: parseFloat(latitude),
+            longitude: parseFloat(longitude),
+            username,
+            image: jsonData.imagePath,
+          });
+        }
+  
+        navigation.goBack();
+      } else {
+        console.log('No image selected');
+      }
+    } catch (error) {
+      console.error('Image upload error:', error);
+    }
   };
+  
+  
+  
+  
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Product Details</Text>
+      <Button title="Select Image" onPress={pickImage} />
+      {image && <Image source={{ uri: `data:image/jpeg;base64,${image}` }} style={{ width: 200, height: 200 }} />}
       <Text style={styles.productName}>{product.name}</Text>
+      <Text style={styles.productDescription}>{product.description}</Text>
 
       <Text style={styles.inputLabel}>Event Name</Text>
       <TextInput

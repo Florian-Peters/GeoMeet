@@ -8,22 +8,59 @@ import * as Location from 'expo-location';
 
 const Stack = createStackNavigator();
 
-const MemoizedMarker = React.memo(({ event }) => (
-  <Marker
-    coordinate={{
-      latitude: event.latitude,
-      longitude: event.longitude,
-    }}
-    title={event.username}
-  >
-    {event.image && (
-      <Image
-        source={{ uri: event.image }}
-        style={{ width: 80, height: 80 }}
-      />
-    )}
-  </Marker>
-));
+const MemoizedMarker = React.memo(({ event }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+   useEffect(() => {
+    const loadImage = async () => {
+      try {
+        const response = await fetch(event.image);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImageLoaded(true);
+          event.image = reader.result;
+        };
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error('Error loading image:', error);
+        setImageLoaded(false);
+      }
+    };
+  
+    if (event.image) {
+      loadImage();
+    }
+  }, [event.image]);
+  
+
+  if (!imageLoaded) {
+    return null;
+  }
+  console.log('Rendering Marker für Event:', event);
+
+
+  return (
+    <Marker
+      coordinate={{
+        latitude: event.latitude,
+        longitude: event.longitude,
+      }}
+      title={event.username}
+    >
+      {event.image && (
+        <Image
+          source={{ uri: event.image }}
+          style={{ width: 80, height: 80 }}
+        />
+      )}
+    </Marker>
+  );
+});
+
+
+
+
 
 const MapViewScreen = ({ navigation, route }) => {
   const { logoUri } = route.params;
@@ -52,7 +89,7 @@ const MapViewScreen = ({ navigation, route }) => {
   };
 
   useEffect(() => {
-    const socket = io('http://204.236.162.216:3001');
+    const socket = io('http://192.168.178.55:3001');
 
     socket.on('connect', () => {
       console.log('Connected to server');
@@ -65,10 +102,19 @@ const MapViewScreen = ({ navigation, route }) => {
       }
     });
 
-    socket.on('updateEventLocations', (eventLocations) => {
-      
-      setEventLocations(eventLocations);
+ 
+
+    socket.on('updateEventLocations', (updatedEventLocations) => {
+      setEventLocations(updatedEventLocations);
     });
+
+    socket.on('eventEnded', (data) => {
+      const { eventId } = data;
+      // Finde das Event im eventLocations-Array anhand der eventId
+      const updatedEventLocations = eventLocations.filter((event) => event.eventId !== eventId);
+      setEventLocations(updatedEventLocations);
+    });
+    
 
     const watchLocation = async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
