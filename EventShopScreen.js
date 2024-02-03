@@ -19,7 +19,7 @@ const EventShopScreen = () => {
       id: '1', 
       name: '24H Marker!', 
       price: 20000, 
-      duration: 1 * 2 * 15 * 1000, // 24 Stunden in Millisekunden
+      duration: 1 * 2 * 15 * 1000, // 24 hours in milliseconds
       image: require('./assets/24h.jpeg'), 
       priceImage: require('./assets/Bubble.png'), 
       description: 'With this purchase, the event will be marked on the map for 24 hours. Consider carefully when the right time frame is!',  
@@ -28,7 +28,7 @@ const EventShopScreen = () => {
       id: '2', 
       name: '48H Marker!', 
       price: 20000, 
-      duration: 1 * 2 * 15 * 1000, // 24 Stunden in Millisekunden
+      duration: 1 * 2 * 15 * 1000, // 24 hours in milliseconds
       image: require('./assets/48h.jpeg'), 
       priceImage: require('./assets/Bubble.png'), 
       description: 'With this purchase, the event will be marked on the map for 24 hours. Consider carefully when the right time frame is!',  
@@ -37,7 +37,7 @@ const EventShopScreen = () => {
       id: '3', 
       name: '7Day Marker!', 
       price: 20000, 
-      duration: 1 * 2 * 15 * 1000, // 24 Stunden in Millisekunden
+      duration: 1 * 2 * 15 * 1000, // 24 hours in milliseconds
       image: require('./assets/7days.jpeg'), 
       priceImage: require('./assets/Bubble.png'), 
       description: 'With this purchase, the event will be marked on the map for 24 hours. Consider carefully when the right time frame is!',  
@@ -46,25 +46,23 @@ const EventShopScreen = () => {
       id: '4', 
       name: '14Day Marker!', 
       price: 20000, 
-      duration: 1 * 2 * 15 * 1000, // 24 Stunden in Millisekunden
+      duration: 1 * 2 * 15 * 1000, // 24 hours in milliseconds
       image: require('./assets/14days.jpeg'), 
       priceImage: require('./assets/Bubble.png'), 
       description: 'With this purchase, the event will be marked on the map for 24 hours. Consider carefully when the right time frame is!',  
     },
-
   ];
 
   const handleProductPress = (product) => {
-    // ... Hier kann nun die Logik für die Produktdetails-Seite implementiert werden
+    // ... Implement logic for the product details page here
 
-    // Navigiere zu "ProductDetails" und übergebe benötigte Parameter
+    // Navigate to "ProductDetails" and pass the required parameters
     navigation.navigate('ProductDetails', { product,  duration: product.duration });
   };
   
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Willkommen im Event Shop!</Text>
+      <Text style={styles.title}>Welcome to the Event Shop!</Text>
 
       <FlatList
         data={products}
@@ -72,9 +70,9 @@ const EventShopScreen = () => {
         renderItem={({ item }) => (
           <TouchableOpacity onPress={() => handleProductPress(item)}>
             <View style={styles.itemContainer}>
-            <View style={styles.imageContainer}>
-            <Image source={item.image} style={styles.itemImage} />
-            </View>
+              <View style={styles.imageContainer}>
+                <Image source={item.image} style={styles.itemImage} />
+              </View>
               <Text style={styles.itemName}>{item.name}</Text>
               <View style={styles.priceContainer}>
                 <Text style={styles.itemPrice}>{item.price}</Text>
@@ -112,10 +110,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 5,
     alignItems: 'center',
-    backgroundColor: 'black', // Hintergrundfarbe der Produktcontainer
+    backgroundColor: 'black', // Background color of the product container
   },
   imageContainer: {
-    width: '100%', // Hier kannst du die Breite anpassen
+    width: '100%', // Adjust the width as needed
     alignItems: 'center',
     marginBottom: 10,
   },
@@ -137,11 +135,10 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 16,
     color: 'white',
-    
   },
   descriptionContainer: {
     marginTop: 25,
-    width: '100%', // Hier kannst du die Breite anpassen
+    width: '100%', // Adjust the width as needed
     marginBottom: 10,
   },
   itemDescription: {

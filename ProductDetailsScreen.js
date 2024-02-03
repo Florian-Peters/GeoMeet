@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Image, Platform } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, Image, Platform, ScrollView, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import io from 'socket.io-client';
 import * as ImagePicker from 'expo-image-picker';
+import MapView, { Marker } from 'react-native-maps';  
 import uuid from 'react-native-uuid';
 
 const ProductDetailsScreen = ({ route }) => {
-  
   const navigation = useNavigation();
   const { product } = route.params;
   const { duration } = route.params;
   const [username, setUsername] = useState('');
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
   const [socket, setSocket] = useState(null);
   const [image, setImage] = useState(null);
+  const [eventDescription, setEventDescription] = useState('');
+  const maxCharacterCount = 600;
 
   useEffect(() => {
     const socketInstance = io('http://192.168.178.55:3001');
@@ -48,33 +50,33 @@ const ProductDetailsScreen = ({ route }) => {
       quality: 0.8,
     });
     
-    console.log(result); // Log the entire result object
-    
-  
     if (!result.cancelled) {
       setImage(result.assets[0].uri);
-      console.log('Selected image URI:', result.assets[0].uri); // Hinzugefügt für Debugging
+      console.log('Selected image URI:', result.assets[0].uri);
     }
-    
   };
-  
+
+  const handleMapPress = (event) => {
+    const { coordinate } = event.nativeEvent;
+    setLatitude(coordinate.latitude);
+    setLongitude(coordinate.longitude);
+  };
+
   const handleConfirmPurchase = async () => {
     try {
-      if (image) {
+      if (image && latitude !== null && longitude !== null) {
         let localUri = image;
         let filename = localUri.split('/').pop();
-      
-        // Infer the type of the image
+
         let match = /\.(\w+)$/.exec(filename);
         let type = match ? `image/${match[1]}` : `image`;
-      
-        // Upload the image using the fetch and FormData APIs
+
         let formData = new FormData();
-        // Assume "photo" is the name of the form field the server expects
         formData.append('image', { uri: localUri, name: filename, type });
         formData.append('latitude', latitude.toString());
         formData.append('longitude', longitude.toString());
-      
+        formData.append('eventDescription', eventDescription);
+
         const response = await fetch('http://192.168.178.55:3001/upload', {
           method: 'POST',
           body: formData,
@@ -82,17 +84,15 @@ const ProductDetailsScreen = ({ route }) => {
             'Content-Type': 'multipart/form-data',
           },
         });
-  
-        const data = await response.text(); // Hier verwende text(), um den Antworttext zu erhalten
+
+        const data = await response.text();
         console.log('Image upload response:', data);
-  
-        // Versuche, die Antwort als JSON zu parsen
+
         const jsonData = JSON.parse(data);
         console.log('Parsed JSON response:', jsonData);
-  
-        // Erstelle eine eindeutige eventId
+
         const eventId = uuid.v4();
-  
+
         if (socket && socket.connected) {
           socket.emit('confirmPurchase', {
             latitude: parseFloat(latitude),
@@ -100,54 +100,94 @@ const ProductDetailsScreen = ({ route }) => {
             duration,
             username,
             image: jsonData.imagePath,
-            eventId, // Füge die eventId hinzu
+            eventId,
+            eventDescription,
           });
         }
-  
+
         navigation.goBack();
       } else {
-        console.log('No image selected');
+        console.log('Please select an image, choose a location on the map, and provide an event description');
       }
     } catch (error) {
       console.error('Image upload error:', error);
     }
   };
 
+  const remainingCharacterCount = maxCharacterCount - eventDescription.length;
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Product Details</Text>
-      <Button title="Select Image" onPress={pickImage} />
-      {image && <Image source={{ uri: `data:image/jpeg;base64,${image}` }} style={{ width: 200, height: 200 }} />}
-      <Text style={styles.productName}>{product.name}</Text>
-      <Text style={styles.productDescription}>{product.description}</Text>
+    <ScrollView contentContainerStyle={styles.scrollViewContent}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Product Details</Text>
 
-      <Text style={styles.inputLabel}>Event Name</Text>
-      <TextInput
-        style={styles.input}
-        onChangeText={setUsername}
-        value={username}
-      />
+        <MapView
+          style={styles.map}
+          onPress={handleMapPress}
+          initialRegion={{
+            latitude: 37.78825,
+            longitude: -122.4324,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }}
+        >
+          {latitude !== null && longitude !== null && (
+            <Marker coordinate={{ latitude, longitude }} />
+          )}
+        </MapView>
 
-      <Text style={styles.inputLabel}>Latitude:</Text>
-      <TextInput
-        style={styles.input}
-        onChangeText={setLatitude}
-        keyboardType="numeric"
-      />
+        <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
+          <Text style={styles.imageButtonText}>Select Image</Text>
+        </TouchableOpacity>
 
-      <Text style={styles.inputLabel}>Longitude:</Text>
-      <TextInput
-        style={styles.input}
-        onChangeText={setLongitude}
-        keyboardType="numeric"
-      />
+        {image && <Image source={{ uri: `data:image/jpeg;base64,${image}` }} style={styles.imagePreview} />}
 
-      <Button title="Confirm Purchase" onPress={handleConfirmPurchase} />
-    </View>
+        <Text style={styles.productName}>{product.name}</Text>
+        <Text style={styles.productDescription}>{product.description}</Text>
+
+        <Text style={styles.inputLabel}>Event Name</Text>
+        <TextInput
+          style={styles.input}
+          onChangeText={setUsername}
+          value={username}
+        />
+
+        <Text style={styles.inputLabel}>Event Description ({remainingCharacterCount} characters remaining)</Text>
+        <TextInput
+          style={styles.eventDescriptionInput}
+          onChangeText={(text) => {
+            if (text.length <= maxCharacterCount) {
+              setEventDescription(text);
+            }
+          }}
+          value={eventDescription}
+          multiline
+        />
+
+        <TouchableOpacity style={styles.confirmButton} onPress={handleConfirmPurchase}>
+          <Text style={styles.confirmButtonText}>Confirm Purchase</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.howToBuyText}>
+          How to Buy:
+          {'\n\n'}
+          1. Select a location on the map.
+          {'\n\n'}
+          2. Choose an image.
+          {'\n\n'}
+          3. Enter your event name and description.
+          {'\n\n'}
+          4. Confirm the purchase.
+        </Text>
+      </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  scrollViewContent: {
+    flexGrow: 1,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -160,14 +200,41 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     color: '#89ff55',
   },
+  map: {
+    width: '100%',
+    height: 400,
+    marginBottom: 20,
+  },
+  imageButton: {
+    backgroundColor: '#89ff55',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+  },
+  imageButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  imagePreview: {
+    width: 200,
+    height: 200,
+    marginBottom: 20,
+  },
   productName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: 'white',
   },
+  productDescription: {
+    fontSize: 16,
+    color: 'white',
+    marginBottom: 20,
+  },
   inputLabel: {
     fontSize: 16,
     color: 'white',
+    marginBottom: 5,
   },
   input: {
     height: 40,
@@ -176,6 +243,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 20,
     color: 'white',
+    paddingLeft: 10,
+    borderRadius: 5,
+  },
+  eventDescriptionInput: {
+    height: 120,
+    width: '80%',
+    borderColor: 'gray',
+    borderWidth: 1,
+    marginBottom: 20,
+    color: 'white',
+    paddingLeft: 10,
+    paddingTop: 10,
+    borderRadius: 5,
+  },
+  confirmButton: {
+    backgroundColor: '#89ff55',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+  },
+  confirmButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  howToBuyText: {
+    fontSize: 14,
+    color: '#89ff55',
+    textAlign: 'center',
+    marginTop: 20,
   },
 });
 
