@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import io from 'socket.io-client';
 
 const EventShopScreen = () => {
+  
   const [socket, setSocket] = useState(null);
   const [username, setUsername] = useState('');
   const [latitude, setLatitude] = useState('');
@@ -18,19 +19,48 @@ const EventShopScreen = () => {
       id: '1', 
       name: '24H Marker!', 
       price: 20000, 
-      image: 'https://i.ibb.co/K96gGCq/Chochella.png',
+      duration: 1 * 2 * 15 * 1000, // 24 Stunden in Millisekunden
+      image: require('./assets/24h.jpeg'), 
       priceImage: require('./assets/Bubble.png'), 
       description: 'With this purchase, the event will be marked on the map for 24 hours. Consider carefully when the right time frame is!',  
     },
-    // Weitere Produkte...
+    { 
+      id: '2', 
+      name: '48H Marker!', 
+      price: 20000, 
+      duration: 1 * 2 * 15 * 1000, // 24 Stunden in Millisekunden
+      image: require('./assets/48h.jpeg'), 
+      priceImage: require('./assets/Bubble.png'), 
+      description: 'With this purchase, the event will be marked on the map for 24 hours. Consider carefully when the right time frame is!',  
+    },
+    { 
+      id: '3', 
+      name: '7Day Marker!', 
+      price: 20000, 
+      duration: 1 * 2 * 15 * 1000, // 24 Stunden in Millisekunden
+      image: require('./assets/7days.jpeg'), 
+      priceImage: require('./assets/Bubble.png'), 
+      description: 'With this purchase, the event will be marked on the map for 24 hours. Consider carefully when the right time frame is!',  
+    },
+    { 
+      id: '4', 
+      name: '14Day Marker!', 
+      price: 20000, 
+      duration: 1 * 2 * 15 * 1000, // 24 Stunden in Millisekunden
+      image: require('./assets/14days.jpeg'), 
+      priceImage: require('./assets/Bubble.png'), 
+      description: 'With this purchase, the event will be marked on the map for 24 hours. Consider carefully when the right time frame is!',  
+    },
+
   ];
 
   const handleProductPress = (product) => {
     // ... Hier kann nun die Logik für die Produktdetails-Seite implementiert werden
 
     // Navigiere zu "ProductDetails" und übergebe benötigte Parameter
-    navigation.navigate('ProductDetails', { product });
+    navigation.navigate('ProductDetails', { product,  duration: product.duration });
   };
+  
 
   return (
     <View style={styles.container}>
@@ -42,9 +72,9 @@ const EventShopScreen = () => {
         renderItem={({ item }) => (
           <TouchableOpacity onPress={() => handleProductPress(item)}>
             <View style={styles.itemContainer}>
-              <View style={styles.imageContainer}>
-                <Image style={styles.itemImage} source={{ uri: item.image }} />
-              </View>
+            <View style={styles.imageContainer}>
+            <Image source={item.image} style={styles.itemImage} />
+            </View>
               <Text style={styles.itemName}>{item.name}</Text>
               <View style={styles.priceContainer}>
                 <Text style={styles.itemPrice}>{item.price}</Text>
@@ -90,9 +120,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   itemImage: {
-    width: '60%',
+    width: '70%',
     height: 180,
     borderRadius: 5,
+    backgroundColor: 'black',
   },
   itemName: {
     fontSize: 18,

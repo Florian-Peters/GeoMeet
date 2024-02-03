@@ -3,10 +3,13 @@ import { View, Text, TextInput, Button, StyleSheet, Image, Platform } from 'reac
 import { useNavigation } from '@react-navigation/native';
 import io from 'socket.io-client';
 import * as ImagePicker from 'expo-image-picker';
+import uuid from 'react-native-uuid';
 
 const ProductDetailsScreen = ({ route }) => {
+  
   const navigation = useNavigation();
   const { product } = route.params;
+  const { duration } = route.params;
   const [username, setUsername] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
@@ -55,7 +58,6 @@ const ProductDetailsScreen = ({ route }) => {
     
   };
   
-  
   const handleConfirmPurchase = async () => {
     try {
       if (image) {
@@ -88,12 +90,17 @@ const ProductDetailsScreen = ({ route }) => {
         const jsonData = JSON.parse(data);
         console.log('Parsed JSON response:', jsonData);
   
+        // Erstelle eine eindeutige eventId
+        const eventId = uuid.v4();
+  
         if (socket && socket.connected) {
           socket.emit('confirmPurchase', {
             latitude: parseFloat(latitude),
             longitude: parseFloat(longitude),
+            duration,
             username,
             image: jsonData.imagePath,
+            eventId, // Füge die eventId hinzu
           });
         }
   
@@ -105,10 +112,6 @@ const ProductDetailsScreen = ({ route }) => {
       console.error('Image upload error:', error);
     }
   };
-  
-  
-  
-  
 
   return (
     <View style={styles.container}>
