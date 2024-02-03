@@ -153,14 +153,14 @@ app.post('/upload', upload.single('image'), (req, res) => {
     latitude: latitude,
     longitude: longitude,
     username: req.body.username,
-    image: `http://192.168.178.55:3001/uploads/${req.file.filename}`,
+    image: `http://52.53.246.187:3001/uploads/${req.file.filename}`,
     eventId: eventId,
   });
 
   res.status(200).json({
     message: 'Image uploaded successfully',
     eventId: eventId,
-    imagePath: `http://192.168.178.55:3001/uploads/${req.file.filename}`,
+    imagePath: `http://52.53.246.187:3001/uploads/${req.file.filename}`,
   });
 });
 
