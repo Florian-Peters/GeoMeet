@@ -95,7 +95,7 @@ const MapViewScreen = ({ navigation, route }) => {
   };
 
   useEffect(() => {
-    const socket = io('http://192.168.178.55:3001');
+    const socket = io('http://52.53.246.187:3001');
 
     socket.on('connect', () => {
       console.log('Connected to server');
