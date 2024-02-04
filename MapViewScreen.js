@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, TouchableOpacity, StyleSheet, Text, TextInput, Button, Image, Switch } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Text, TextInput, Button, Image, Switch, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import MapView, { Marker } from 'react-native-maps';
 import io from 'socket.io-client';
 import * as Location from 'expo-location';
-import { ActivityIndicator } from 'react-native';
-
+import socket from './socket';
+import ChatComponent from './ChatComponent';
 
 const Stack = createStackNavigator();
 
@@ -61,10 +61,7 @@ const MemoizedMarker = React.memo(({ event }) => {
   );
 });
 
-
-
-
-
+// ... (vorheriger Code)
 
 const MapViewScreen = ({ navigation, route }) => {
   const { logoUri } = route.params;
@@ -79,6 +76,13 @@ const MapViewScreen = ({ navigation, route }) => {
   const [initialRegionSet, setInitialRegionSet] = useState(false);
   const [region, setRegion] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [chatInput, setChatInput] = useState('');  // Assuming these variables are declared somewhere
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [receivedMessages, setReceivedMessages] = useState([]);
+  const [sentMessages, setSentMessages] = useState([]);
+
+
 
 
   const handleCreateUser = () => {
@@ -94,21 +98,45 @@ const MapViewScreen = ({ navigation, route }) => {
     setGpsEnabled(!gpsEnabled);
   };
 
+  const handleMarkerPress = (user) => {
+    setSelectedUser(user);
+  };
+
+  const handleSendMessage = (message) => {
+    const timestamp = new Date().getTime(); // Add timestamp to the message
+    socket.emit('sendMessage', { sender: username, receiver: selectedUser.username, message, timestamp });
+    const newSentMessage = { sender: username, receiver: selectedUser.username, message, timestamp };
+    setSentMessages((prevSentMessages) => [...prevSentMessages, newSentMessage]);
+    setChatInput('');
+  };
+  
+  
+  
+
+  const handleToggleChat = () => {
+    setIsChatOpen(!isChatOpen);
+  };
+
   useEffect(() => {
-    const socket = io('http://52.53.246.187:3001');
+    const socket = io('http://192.168.178.55:3001');
 
     socket.on('connect', () => {
       console.log('Connected to server');
     });
+     socket.on('messageSentConfirmation', (data) => {
+    const { receiver, message } = data;
+    // Leere das Texteingabefeld nach dem erfolgreichen Versenden der Nachricht
+    setChatInput('');
+
+    // Hier kannst du die gesendete Nachricht in deinem UI verarbeiten, wenn gewünscht
+    console.log(`Sent message to ${receiver}: ${message}`);
+  });
 
     socket.on('updateLocation', (data) => {
-
       if (gpsEnabled) {
         setUserLocations(data);
       }
     });
-
- 
 
     socket.on('updateEventLocations', (updatedEventLocations) => {
       setEventLocations(updatedEventLocations);
@@ -121,14 +149,13 @@ const MapViewScreen = ({ navigation, route }) => {
       console.log(`Updated eventLocations: ${JSON.stringify(updatedEventLocations)}`);
       setEventLocations(updatedEventLocations);
     });
-    
 
-    
-    
-    
-    
-    
-    
+    socket.on('receiveMessage', (data) => {
+      console.log('Received message:', data);
+
+      // Hier fügen Sie die empfangene Nachricht zum State hinzu
+      setReceivedMessages((prevMessages) => [...prevMessages, data]);
+    });
 
     const watchLocation = async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -140,8 +167,8 @@ const MapViewScreen = ({ navigation, route }) => {
       await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
-          timeInterval: 1000,
-          distanceInterval: 1,
+          timeInterval: 8000,
+          distanceInterval: 10,
         },
         (location) => {
           const { latitude, longitude } = location.coords;
@@ -152,9 +179,7 @@ const MapViewScreen = ({ navigation, route }) => {
               longitude,
               username,
               image: 'https://i.ibb.co/DzTJJDQ/Nadel-Geojam.png',
-              
             };
-
 
             socket.emit('updateLocation', userLocationData);
             setMyLocation(userLocationData);
@@ -170,7 +195,6 @@ const MapViewScreen = ({ navigation, route }) => {
     return () => {
       socket.disconnect();
       console.log('Disconnected from server');
-
     };
   }, [username, gpsEnabled]);
 
@@ -186,6 +210,9 @@ const MapViewScreen = ({ navigation, route }) => {
       setInitialRegionSet(true);
     }
   }, [initialRegionSet, myLocation]);
+
+  
+
 
   return (
     <View style={{ flex: 1 }}>
@@ -253,6 +280,7 @@ const MapViewScreen = ({ navigation, route }) => {
                         longitude: user.longitude,
                       }}
                       title={user.username}
+                      onPress={() => handleMarkerPress(user)}
                     >
                       {user.image && (
                         <Image
@@ -279,6 +307,19 @@ const MapViewScreen = ({ navigation, route }) => {
               </MapView>
             )}
           </View>
+          {mapReady && selectedUser && username && (  // Check if username is set before rendering ChatComponent
+            <ChatComponent
+            selectedUser={selectedUser}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            onSendMessage={handleSendMessage}
+            onToggleChat={handleToggleChat}
+            receivedMessages={receivedMessages} // Hier übergeben Sie die empfangenen Nachrichten an die ChatComponent
+            sentMessages={sentMessages}
+
+
+            />
+          )}
         </>
       )}
     </View>

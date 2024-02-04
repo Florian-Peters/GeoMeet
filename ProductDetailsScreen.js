@@ -5,6 +5,8 @@ import io from 'socket.io-client';
 import * as ImagePicker from 'expo-image-picker';
 import MapView, { Marker } from 'react-native-maps';  
 import uuid from 'react-native-uuid';
+import socket from './socket';
+
 
 const ProductDetailsScreen = ({ route }) => {
   const navigation = useNavigation();
@@ -19,7 +21,7 @@ const ProductDetailsScreen = ({ route }) => {
   const maxCharacterCount = 600;
 
   useEffect(() => {
-    const socketInstance = io('http://52.53.246.187:3001');
+    const socketInstance = io('http://192.168.178.55:3001');
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {
@@ -77,7 +79,7 @@ const ProductDetailsScreen = ({ route }) => {
         formData.append('longitude', longitude.toString());
         formData.append('eventDescription', eventDescription);
 
-        const response = await fetch('http://52.53.246.187:3001/upload', {
+        const response = await fetch('http://192.168.178.55:3001/upload', {
           method: 'POST',
           body: formData,
           headers: {

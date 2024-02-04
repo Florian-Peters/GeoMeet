@@ -11,40 +11,18 @@ const io = socketIo(server);
 
 const userLocationData = [];
 const eventLocations = [];
-
-const removeEventLocation = (eventId, callback) => {
-  console.log(`Removing event with eventId: ${eventId}`);
-  const index = eventLocations.findIndex((event) => event.eventId === eventId);
-
-  if (index === -1) {
-    console.error(`Event with eventId ${eventId} not found.`);
-    return;
-  }
-
-  const event = eventLocations[index];
-  const imagePath = path.join(__dirname, 'uploads', path.basename(event.image));
-
-  fs.unlink(imagePath, (err) => {
-    if (err) {
-      console.error(`Error removing image at ${imagePath}:`, err);
-      return;
-    }
-
-    console.log(`Image at ${imagePath} removed successfully`);
-
-    // Rufe das Callback auf, um fortzufahren
-    if (callback) {
-      callback();
-    }
-  });
-
-  // Entferne das Event aus der Liste
-  eventLocations.splice(index, 1);
-  io.emit('eventEnded', { eventId: event.eventId });
-  io.emit('updateEventLocations', eventLocations);
-};
-
 const socketToUsernameMap = new Map();
+const usernameToSocketMap = new Map();
+
+
+const getUsernameSocketId = (username) => {
+  for (const [socketId, name] of socketToUsernameMap.entries()) {
+    if (name === username) {
+      return socketId;
+    }
+  }
+  return null; // Benutzer nicht gefunden
+};
 
 io.on('connection', (socket) => {
   console.log('Client connected');
@@ -53,6 +31,22 @@ io.on('connection', (socket) => {
 
   socket.on('getLocations', () => {
     io.emit('updateLocation', userLocationData);
+  });
+
+  // Hier füge die Logik für die Chat-Nachrichten hinzu
+  socket.on('sendMessage', (data) => {
+    const { sender, receiver, message } = data;
+    const timestamp = new Date().getTime(); // Erstellen Sie einen Zeitstempel
+  
+    // Überprüfen, ob der Empfänger online ist
+    const receiverSocketId = usernameToSocketMap.get(receiver);
+    if (receiverSocketId) {
+      // Sende die Nachricht nur an den spezifizierten Empfänger
+      io.to(receiverSocketId).emit('receiveMessage', { sender, message, timestamp }); // Fügen Sie den Zeitstempel zur Nachricht hinzu
+  
+      // Sende eine Bestätigungsnachricht an den Sender
+      socket.emit('messageSentConfirmation', { receiver, message, timestamp }); // Fügen Sie den Zeitstempel zur Bestätigungsnachricht hinzu
+    }
   });
 
   socket.on('eventImage', ({ eventId, imagePath }) => {
@@ -93,8 +87,12 @@ io.on('connection', (socket) => {
 
     // Update the map with the socket ID and username
     socketToUsernameMap.set(socket.id, data.username);
+    usernameToSocketMap.set(data.username, socket.id);
+
+
 
     io.emit('updateLocation', userLocationData);
+    
   });
 
   socket.on('disconnect', () => {
@@ -110,6 +108,8 @@ io.on('connection', (socket) => {
     socketToUsernameMap.delete(socket.id);
   });
 });
+
+// ... (weiterer Servercode)
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -153,14 +153,14 @@ app.post('/upload', upload.single('image'), (req, res) => {
     latitude: latitude,
     longitude: longitude,
     username: req.body.username,
-    image: `http://52.53.246.187:3001/uploads/${req.file.filename}`,
+    image: `http://192.168.178.55:3001/uploads/${req.file.filename}`,
     eventId: eventId,
   });
 
   res.status(200).json({
     message: 'Image uploaded successfully',
     eventId: eventId,
-    imagePath: `http://52.53.246.187:3001/uploads/${req.file.filename}`,
+    imagePath: `http://192.168.178.55:3001/uploads/${req.file.filename}`,
   });
 });
 
@@ -172,6 +172,38 @@ const addEventLocation = (data) => {
     image: data.image,
     eventId: data.eventId,
   });
+  io.emit('updateEventLocations', eventLocations);
+};
+
+const removeEventLocation = (eventId, callback) => {
+  console.log(`Removing event with eventId: ${eventId}`);
+  const index = eventLocations.findIndex((event) => event.eventId === eventId);
+
+  if (index === -1) {
+    console.error(`Event with eventId ${eventId} not found.`);
+    return;
+  }
+
+  const event = eventLocations[index];
+  const imagePath = path.join(__dirname, 'uploads', path.basename(event.image));
+
+  fs.unlink(imagePath, (err) => {
+    if (err) {
+      console.error(`Error removing image at ${imagePath}:`, err);
+      return;
+    }
+
+    console.log(`Image at ${imagePath} removed successfully`);
+
+    // Rufe das Callback auf, um fortzufahren
+    if (callback) {
+      callback();
+    }
+  });
+
+  // Entferne das Event aus der Liste
+  eventLocations.splice(index, 1);
+  io.emit('eventEnded', { eventId: event.eventId });
   io.emit('updateEventLocations', eventLocations);
 };
 
