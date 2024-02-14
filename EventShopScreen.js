@@ -19,7 +19,7 @@ const EventShopScreen = () => {
       id: '1', 
       name: '24H Marker!', 
       price: 20000, 
-      duration: 1 * 2 * 15 * 1000, // 24 hours in milliseconds
+      duration: 24 * 60* 60 * 1000, // 24 hours in milliseconds
       image: require('./assets/24h.jpeg'), 
       priceImage: require('./assets/Bubble.png'), 
       description: 'With this purchase, the event will be marked on the map for 24 hours. Consider carefully when the right time frame is!',  

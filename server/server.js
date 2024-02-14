@@ -4,16 +4,24 @@ const socketIo = require('socket.io');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const admin = require('firebase-admin');
+
+var serviceAccount = require("/Users/florianpeters/Desktop/Walid Ap1/RealSocialMeet/server/real-social-meet-firebase-adminsdk-d0v9e-22527c62f7.json");
+let eventLocations = [];
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+const db = admin.firestore();
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
 const userLocationData = [];
-const eventLocations = [];
 const socketToUsernameMap = new Map();
 const usernameToSocketMap = new Map();
-
 
 const getUsernameSocketId = (username) => {
   for (const [socketId, name] of socketToUsernameMap.entries()) {
@@ -21,52 +29,18 @@ const getUsernameSocketId = (username) => {
       return socketId;
     }
   }
-  return null; // Benutzer nicht gefunden
+  return null;
 };
 
 io.on('connection', (socket) => {
   console.log('Client connected');
-  io.emit('updateLocation', userLocationData);
-  io.emit('updateEventLocations', eventLocations);
 
-  socket.on('getLocations', () => {
-    io.emit('updateLocation', userLocationData);
-  });
-
-  // Hier füge die Logik für die Chat-Nachrichten hinzu
-  socket.on('sendMessage', (data) => {
-    const { sender, receiver, message } = data;
-    const timestamp = new Date().getTime(); // Erstellen Sie einen Zeitstempel
-  
-    // Überprüfen, ob der Empfänger online ist
-    const receiverSocketId = usernameToSocketMap.get(receiver);
-    if (receiverSocketId) {
-      // Sende die Nachricht nur an den spezifizierten Empfänger
-      io.to(receiverSocketId).emit('receiveMessage', { sender, message, timestamp }); // Fügen Sie den Zeitstempel zur Nachricht hinzu
-  
-      // Sende eine Bestätigungsnachricht an den Sender
-      socket.emit('messageSentConfirmation', { receiver, message, timestamp }); // Fügen Sie den Zeitstempel zur Bestätigungsnachricht hinzu
-    }
-  });
-
-  socket.on('eventImage', ({ eventId, imagePath }) => {
-    console.log(`Received eventImage with eventId: ${eventId} and imagePath: ${imagePath}`);
-    const updatedEventLocations = [...eventLocations];
-    updatedEventLocations[eventId].image = imagePath;
-    io.emit('updateEventLocations', updatedEventLocations);
-  });
-
-  socket.on('confirmPurchase', (data) => {
+  socket.on('confirmPurchase', async (data) => {
     console.log(`Received confirmPurchase with data: ${JSON.stringify(data)}`);
-    addEventLocation(data);
+    await addEventLocation(data);
 
     setTimeout(() => {
-      const index = eventLocations.findIndex((event) => event.eventId === data.eventId);
-      if (index !== -1) {
-        removeEventLocation(data.eventId, () => {
-          io.emit('updateEventLocations', eventLocations);
-        });
-      }
+      removeEventLocation(data.eventId);
     }, data.duration);
   });
 
@@ -76,6 +50,8 @@ io.on('connection', (socket) => {
       longitude: data.longitude,
       username: data.username,
       image: data.image,
+      duration: data.duration, // Hier die duration hinzufügen
+
     };
 
     const existingUser = userLocationData.find((user) => user.username === data.username);
@@ -85,31 +61,23 @@ io.on('connection', (socket) => {
       userLocationData.push(updatedUser);
     }
 
-    // Update the map with the socket ID and username
     socketToUsernameMap.set(socket.id, data.username);
     usernameToSocketMap.set(data.username, socket.id);
 
-
-
     io.emit('updateLocation', userLocationData);
-    
   });
 
   socket.on('disconnect', () => {
     console.log('Client disconnected');
-    // Remove the disconnected user from the list
     const username = socketToUsernameMap.get(socket.id);
     const index = userLocationData.findIndex((user) => user.username === username);
     if (index !== -1) {
       userLocationData.splice(index, 1);
       io.emit('updateLocation', userLocationData);
     }
-    // Remove the entry from the map
     socketToUsernameMap.delete(socket.id);
   });
 });
-
-// ... (weiterer Servercode)
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -135,7 +103,6 @@ app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
 app.post('/upload', upload.single('image'), (req, res) => {
-  console.log(`Received latitude: ${req.body.latitude}, longitude: ${req.body.longitude}`);
   if (!req.file) {
     return res.status(400).json({ message: 'No file in request.' });
   }
@@ -147,12 +114,12 @@ app.post('/upload', upload.single('image'), (req, res) => {
     return res.status(400).json({ message: 'Latitude and longitude are required and cannot be null.' });
   }
 
-  const { eventId } = req.body; // Die vom Client übermittelte eventId
+  const { eventId } = req.body;
 
   addEventLocation({
     latitude: latitude,
     longitude: longitude,
-    username: req.body.username,
+    eventname: req.body.eventname,
     image: `http://192.168.178.55:3001/uploads/${req.file.filename}`,
     eventId: eventId,
   });
@@ -164,48 +131,82 @@ app.post('/upload', upload.single('image'), (req, res) => {
   });
 });
 
-const addEventLocation = (data) => {
-  eventLocations.push({
-    latitude: data.latitude,
-    longitude: data.longitude,
-    username: data.username,
-    image: data.image,
-    eventId: data.eventId,
-  });
-  io.emit('updateEventLocations', eventLocations);
-};
+const addEventLocation = async (data) => {
+  console.log(data);
 
-const removeEventLocation = (eventId, callback) => {
-  console.log(`Removing event with eventId: ${eventId}`);
-  const index = eventLocations.findIndex((event) => event.eventId === eventId);
-
-  if (index === -1) {
-    console.error(`Event with eventId ${eventId} not found.`);
+  // Überprüfen Sie, ob data und data.duration definiert sind
+  if (!data || typeof data.duration === 'undefined') {
     return;
   }
+  const docRef = db.collection('eventLocations').doc(data.eventId);
+  await docRef.set({
+    latitude: data.latitude,
+    longitude: data.longitude,
+    eventname: data.eventname,
+    image: data.image,
+    eventId: data.eventId,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    duration: data.duration,
+    eventDescription: data.eventDescription,
+  });
 
-  const event = eventLocations[index];
-  const imagePath = path.join(__dirname, 'uploads', path.basename(event.image));
+  io.emit('updateEventLocations', eventLocations);
+};
 
-  fs.unlink(imagePath, (err) => {
-    if (err) {
-      console.error(`Error removing image at ${imagePath}:`, err);
-      return;
-    }
+const removeEventLocation = async (eventId) => {
+  console.log(`Removing event with eventId: ${eventId}`);
 
-    console.log(`Image at ${imagePath} removed successfully`);
+  const docRef = db.collection('eventLocations').doc(eventId);
+  await docRef.delete();
 
-    // Rufe das Callback auf, um fortzufahren
-    if (callback) {
-      callback();
+  io.emit('eventEnded', { eventId: eventId });
+  io.emit('updateEventLocations', eventLocations);
+};
+
+const deleteOldEvents = async () => {
+  const currentTime = admin.firestore.Timestamp.now().toMillis();
+  const eventsRef = db.collection('eventLocations');
+  const snapshot = await eventsRef.get();
+
+  const batch = admin.firestore().batch();
+  snapshot.forEach(doc => {
+    const data = doc.data();
+    const eventStartTime = data.createdAt.toMillis();
+    const eventEndTime = eventStartTime + data.duration;
+
+    if (currentTime > eventEndTime) {
+      batch.delete(doc.ref);
     }
   });
 
-  // Entferne das Event aus der Liste
-  eventLocations.splice(index, 1);
-  io.emit('eventEnded', { eventId: event.eventId });
-  io.emit('updateEventLocations', eventLocations);
+  await batch.commit();
+  console.log('Deleted old events');
 };
+
+setInterval(async () => {
+  const eventLocationsRef = db.collection('eventLocations');
+  const snapshot = await eventLocationsRef.get();
+  const eventLocations = [];
+  snapshot.forEach(doc => {
+    eventLocations.push(doc.data());
+  });
+  io.emit('updateEventLocations', eventLocations);
+  console.log('Sent updateEventLocations:', eventLocations);
+
+  await deleteOldEvents();
+}, 10 * 1000);
+
+setInterval(async () => {
+  const eventLocationsRef = db.collection('eventLocations');
+  const snapshot = await eventLocationsRef.get();
+  const eventLocations = [];
+  snapshot.forEach(doc => {
+    eventLocations.push(doc.data());
+  });
+  io.emit('updateEventLocations', eventLocations);
+  console.log('Sent updateEventLocations:', eventLocations);
+
+}, 1 * 10 * 1000);
 
 server.listen(3001, () => {
   console.log('Server is running on port 3001');

@@ -5,14 +5,13 @@ import io from 'socket.io-client';
 import * as ImagePicker from 'expo-image-picker';
 import MapView, { Marker } from 'react-native-maps';  
 import uuid from 'react-native-uuid';
-import socket from './socket';
 
 
 const ProductDetailsScreen = ({ route }) => {
   const navigation = useNavigation();
   const { product } = route.params;
   const { duration } = route.params;
-  const [username, setUsername] = useState('');
+  const [eventname, setEventname] = useState('');
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
   const [socket, setSocket] = useState(null);
@@ -47,8 +46,7 @@ const ProductDetailsScreen = ({ route }) => {
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsEditing: true,
-      aspect: [4, 3],
+
       quality: 0.8,
     });
     
@@ -65,8 +63,12 @@ const ProductDetailsScreen = ({ route }) => {
   };
 
   const handleConfirmPurchase = async () => {
+    console.log('handleConfirmPurchase called'); // Neu hinzugefügt
+
     try {
       if (image && latitude !== null && longitude !== null) {
+        console.log('Image and location are set'); // Neu hinzugefügt
+
         let localUri = image;
         let filename = localUri.split('/').pop();
 
@@ -78,6 +80,14 @@ const ProductDetailsScreen = ({ route }) => {
         formData.append('latitude', latitude.toString());
         formData.append('longitude', longitude.toString());
         formData.append('eventDescription', eventDescription);
+        formData.append('eventname', eventname);
+        formData.append('duration', duration);
+
+
+        const eventId = uuid.v4();
+        console.log(`Generated eventId: ${eventId}`); // Überprüfen Sie den generierten eventId
+
+        formData.append('eventId', eventId);
 
         const response = await fetch('http://192.168.178.55:3001/upload', {
           method: 'POST',
@@ -89,25 +99,26 @@ const ProductDetailsScreen = ({ route }) => {
 
         const data = await response.text();
         console.log('Image upload response:', data);
+        console.log(data)
 
         const jsonData = JSON.parse(data);
         console.log('Parsed JSON response:', jsonData);
-
-        const eventId = uuid.v4();
+        console.log(data)
 
         if (socket && socket.connected) {
+          console.log(data)
           socket.emit('confirmPurchase', {
             latitude: parseFloat(latitude),
             longitude: parseFloat(longitude),
             duration,
-            username,
+            eventname,
             image: jsonData.imagePath,
             eventId,
             eventDescription,
           });
         }
 
-        navigation.goBack();
+        navigation.navigate('MapView');
       } else {
         console.log('Please select an image, choose a location on the map, and provide an event description');
       }
@@ -150,8 +161,8 @@ const ProductDetailsScreen = ({ route }) => {
         <Text style={styles.inputLabel}>Event Name</Text>
         <TextInput
           style={styles.input}
-          onChangeText={setUsername}
-          value={username}
+          onChangeText={setEventname}
+          value={eventname}
         />
 
         <Text style={styles.inputLabel}>Event Description ({remainingCharacterCount} characters remaining)</Text>

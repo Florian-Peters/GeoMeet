@@ -1,76 +1,39 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, TouchableOpacity, StyleSheet, Text, TextInput, Button, Image, Switch, ActivityIndicator } from 'react-native';
+// MapViewScreen.js
+import React, { useState, useEffect } from 'react';
+import { View, TouchableOpacity, StyleSheet, Text, TextInput, Button, Image, Switch, ActivityIndicator, AsyncStorage } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Callout } from 'react-native-maps';
 import io from 'socket.io-client';
 import * as Location from 'expo-location';
 import socket from './socket';
-import ChatComponent from './ChatComponent';
+import ChatComponent from './components/ChatComponent';
+import MemoizedMarker from './components/MemoizedMarker.js';
+import { getFirestore, query, where, getDocs,collection } from 'firebase/firestore';
+import app from './components/firebase.js'; // Importieren Sie Firebase
+import Modal from 'react-native-modal';
+
+const CustomAlert = ({ isVisible, eventDescription, onClose }) => {
+  return (
+    <Modal isVisible={isVisible} onBackdropPress={onClose}>
+      <View style={{ backgroundColor: 'white', padding: 20, borderRadius: 10 }}>
+        <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Event Description</Text>
+        <Text>{eventDescription}</Text>
+        <Button title="Close" onPress={onClose} />
+      </View>
+    </Modal>
+  );
+};
+
 
 const Stack = createStackNavigator();
 
-const MemoizedMarker = React.memo(({ event }) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const imageRef = useRef(null);
-
-  useEffect(() => {
-    const loadImage = async () => {
-      try {
-        const response = await fetch(event.image);
-        const blob = await response.blob();
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setImageLoaded(true);
-          imageRef.current.src = reader.result;
-        };
-        reader.readAsDataURL(blob);
-      } catch (error) {
-        console.error('Error loading image:', error);
-        setImageLoaded(false);
-      }
-    };
-
-    if (event.image) {
-      loadImage();
-    }
-  }, [event.image]);
-
-  if (!imageLoaded) {
-    return null;
-  }
-
-  console.log('Rendering Marker für Event:', event);
-
-  return (
-    <Marker
-      coordinate={{
-        latitude: event.latitude,
-        longitude: event.longitude,
-      }}
-      title={event.username}
-    >
-      {event.image && (
-        <Image
-          ref={imageRef}
-          source={{ uri: event.image }}
-          style={{ width: 80, height: 80 }}
-        />
-      )}
-    </Marker>
-  );
-});
-
-// ... (vorheriger Code)
-
 const MapViewScreen = ({ navigation, route }) => {
-  const { logoUri } = route.params;
+  const { username } = route.params; // Benutzername wird jetzt aus den Routenparametern abgerufen
 
   const [userLocations, setUserLocations] = useState([]);
   const [eventLocations, setEventLocations] = useState([]);
   const [myLocation, setMyLocation] = useState(null);
-  const [username, setUsername] = useState('');
-  const [input, setInput] = useState('');
   const [mapReady, setMapReady] = useState(false);
   const [gpsEnabled, setGpsEnabled] = useState(true);
   const [initialRegionSet, setInitialRegionSet] = useState(false);
@@ -81,41 +44,70 @@ const MapViewScreen = ({ navigation, route }) => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [receivedMessages, setReceivedMessages] = useState([]);
   const [sentMessages, setSentMessages] = useState([]);
-
-
-
-
-  const handleCreateUser = () => {
-    if (input && input.length > 1) {
-      setUsername(input.trim());
-      alert('Benutzer angelegt!');
-    } else {
-      alert('Der Benutzername muss mehr als einen Buchstaben enthalten.');
-    }
-  };
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false); // Zustand für ungelesene Nachrichten
 
   const handleToggleGPS = () => {
     setGpsEnabled(!gpsEnabled);
   };
+  useEffect(() => {
+    navigation.setOptions({
+      handleToggleGPS: () => setGpsEnabled(!gpsEnabled)
+    });
+    
+  }, [navigation, gpsEnabled]);
+  socket.on('updateLocation', (data) => {
+    if (gpsEnabled) {
+      setUserLocations(data);
+    }
+  });
 
-  const handleMarkerPress = (user) => {
-    setSelectedUser(user);
-  };
+  function handleMarkerPressEvent(event) {
 
-  const handleSendMessage = (message) => {
-    const timestamp = new Date().getTime(); // Add timestamp to the message
-    socket.emit('sendMessage', { sender: username, receiver: selectedUser.username, message, timestamp });
-    const newSentMessage = { sender: username, receiver: selectedUser.username, message, timestamp };
-    setSentMessages((prevSentMessages) => [...prevSentMessages, newSentMessage]);
-    setChatInput('');
-  };
+    alert(event.eventDescription);
+  }
   
   
   
 
-  const handleToggleChat = () => {
-    setIsChatOpen(!isChatOpen);
+  const handleMarkerPress = async (user) => {
+    try {
+      const userId = await getUserIdByUsername(user.username);
+  
+      if (userId) {
+        const userWithUid = {
+          ...user,
+          uid: userId,
+        };
+  
+        setSelectedUser(userWithUid);
+        setIsChatOpen(true);
+      } else {
+        console.warn('Benutzer nicht gefunden.');
+        // Handle accordingly
+      }
+    } catch (error) {
+      console.error('Fehler beim Abrufen der Benutzer-ID:', error);
+      // Handle error accordingly
+    }
   };
+  
+  
+  // Annahme: Du verwendest Firebase Firestore
+const getUserIdByUsername = async (username) => {
+  const usersCollection = collection(getFirestore(app), 'users');
+  const userQuery = query(usersCollection, where('username', '==', username));
+  const userSnapshot = await getDocs(userQuery);
+
+  if (userSnapshot.docs.length > 0) {
+    // Annahme: Du speicherst die Benutzer-ID unter 'uid' in deinem Firestore-Dokument
+    return userSnapshot.docs[0].data().uid;
+  } else {
+    return null; // Benutzer nicht gefunden
+  }
+};
+
+
+  
 
   useEffect(() => {
     const socket = io('http://192.168.178.55:3001');
@@ -123,22 +115,9 @@ const MapViewScreen = ({ navigation, route }) => {
     socket.on('connect', () => {
       console.log('Connected to server');
     });
-     socket.on('messageSentConfirmation', (data) => {
-    const { receiver, message } = data;
-    // Leere das Texteingabefeld nach dem erfolgreichen Versenden der Nachricht
-    setChatInput('');
-
-    // Hier kannst du die gesendete Nachricht in deinem UI verarbeiten, wenn gewünscht
-    console.log(`Sent message to ${receiver}: ${message}`);
-  });
-
-    socket.on('updateLocation', (data) => {
-      if (gpsEnabled) {
-        setUserLocations(data);
-      }
-    });
 
     socket.on('updateEventLocations', (updatedEventLocations) => {
+      console.log('Received updated event locations:', updatedEventLocations);
       setEventLocations(updatedEventLocations);
     });
 
@@ -148,13 +127,6 @@ const MapViewScreen = ({ navigation, route }) => {
       const updatedEventLocations = eventLocations.filter((event) => event.eventId !== eventId);
       console.log(`Updated eventLocations: ${JSON.stringify(updatedEventLocations)}`);
       setEventLocations(updatedEventLocations);
-    });
-
-    socket.on('receiveMessage', (data) => {
-      console.log('Received message:', data);
-
-      // Hier fügen Sie die empfangene Nachricht zum State hinzu
-      setReceivedMessages((prevMessages) => [...prevMessages, data]);
     });
 
     const watchLocation = async () => {
@@ -181,6 +153,7 @@ const MapViewScreen = ({ navigation, route }) => {
               image: 'https://i.ibb.co/DzTJJDQ/Nadel-Geojam.png',
             };
 
+            console.log('Updated user location data:', userLocationData);
             socket.emit('updateLocation', userLocationData);
             setMyLocation(userLocationData);
           }
@@ -211,9 +184,6 @@ const MapViewScreen = ({ navigation, route }) => {
     }
   }, [initialRegionSet, myLocation]);
 
-  
-
-
   return (
     <View style={{ flex: 1 }}>
       {loading ? (
@@ -225,7 +195,7 @@ const MapViewScreen = ({ navigation, route }) => {
               <TouchableOpacity style={{ backgroundColor: '#89ff55', borderRadius: 50, paddingVertical: 10, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center' }} onPress={() => navigation.navigate('EventShop')}>
                 <Text style={{ color: 'white' }}>Event Shop</Text>
               </TouchableOpacity>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'right' }}>
                 <Switch
                   value={gpsEnabled}
                   onValueChange={handleToggleGPS}
@@ -233,97 +203,93 @@ const MapViewScreen = ({ navigation, route }) => {
                 <Text style={{ color: gpsEnabled ? 'green' : 'red' }}>{gpsEnabled ? 'GPS An' : 'GPS Aus'}</Text>
               </View>
             </View>
-            {!username ? (
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <Text>Geben Sie einen Benutzernamen ein:</Text>
-                <TextInput
-                  style={{ height: 40, borderColor: 'black', borderWidth: 2, marginTop: 20, marginBottom: 20, paddingLeft: 15, paddingRight: 15, width: '80%' }}
-                  onChangeText={text => setInput(text)}
-                />
-                <Button
-                  title="Benutzer anlegen"
-                  onPress={handleCreateUser}
-                />
-              </View>
-            ) : (
-              <MapView
-                style={{ flex: 1 }}
-                initialRegion={
-                  !initialRegionSet && myLocation
-                    ? {
+            <MapView
+              style={{ flex: 1 }}
+              initialRegion={
+                !initialRegionSet && myLocation
+                  ? {
                       latitude: myLocation.latitude,
                       longitude: myLocation.longitude,
                       latitudeDelta: 0.02,
                       longitudeDelta: 0.02,
                     }
-                    : undefined
+                  : undefined
+              }
+              onLayout={() => {
+                setMapReady(true);
+                if (myLocation) {
+                  setInitialRegionSet(true);
                 }
-                onLayout={() => {
-                  setMapReady(true);
-                  if (myLocation) {
-                    setInitialRegionSet(true);
-                  }
-                }}
-              >
-                {mapReady &&
-                  eventLocations
-                  .filter((event)=> event.eventId)
-                  .map((event, index) => (
-                    <MemoizedMarker key={index} event={event} />
-                  ))}
-                {mapReady &&
-                  userLocations.map((user, index) => (
-                    <Marker
-                      key={index}
-                      coordinate={{
-                        latitude: user.latitude,
-                        longitude: user.longitude,
-                      }}
-                      title={user.username}
-                      onPress={() => handleMarkerPress(user)}
-                    >
-                      {user.image && (
-                        <Image
-                          source={{ uri: user.image }}
-                          style={{ width: 80, height: 80 }}
-                        />
-                      )}
-                    </Marker>
-                  ))}
-                {mapReady && myLocation && (
+              }}
+            >
+              {mapReady &&
+                eventLocations.map((event, index) => (
                   <Marker
+                    key={index}
                     coordinate={{
-                      latitude: myLocation.latitude,
-                      longitude: myLocation.longitude,
+                      latitude: event.latitude,
+                      longitude: event.longitude,
                     }}
-                    title={`Mein Standort (${username})`}
+                    onPress={() => handleMarkerPressEvent(event)}
                   >
-                    <Image
-                      source={require('./assets/NadelGeojam.png')}
-                      style={{ width: 80, height: 80 }}
-                    />
+                    <View style={{ alignItems: 'center' }}>
+                      <View style={{ backgroundColor: 'transparent', padding: 5, borderRadius: 5 }}>
+                        {/* Name wird weiterhin dauerhaft angezeigt */}
+                        <Text style={{ color: 'red', fontWeight: 'bold' }}>{event.eventname}</Text>
+                        {/* Beschreibung hier nicht anzeigen */}
+                      </View>
+                      <Image
+                        source={{ uri: event.image }}
+                        style={{ width: 60, height: 60 }}
+                      />
+                    </View>
                   </Marker>
-                )}
-              </MapView>
-            )}
+                ))}
+              {mapReady &&
+                userLocations.map((user, index) => (
+                  <Marker
+                    key={index}
+                    coordinate={{
+                      latitude: user.latitude,
+                      longitude: user.longitude,
+                    }}
+                    title={user.username}
+                    onPress={() => handleMarkerPress(user)}
+                  >
+                    {user.image && (
+                      <Image
+                        source={{ uri: user.image }}
+                        style={{ width: 80, height: 80 }}
+                      />
+                    )}
+                  </Marker>
+                ))}
+              {mapReady && myLocation && (
+                <Marker
+                  coordinate={{
+                    latitude: myLocation.latitude,
+                    longitude: myLocation.longitude,
+                  }}
+                  title={`Mein Standort (${username})`}
+                >
+                  <Image
+                    source={require('./assets/NadelGeojam.png')}
+                    style={{ width: 80, height: 80 }}
+                  />
+                </Marker>
+              )}
+            </MapView>
           </View>
-          {mapReady && selectedUser && username && (  // Check if username is set before rendering ChatComponent
+          {mapReady && username && selectedUser && isChatOpen && (
             <ChatComponent
-            selectedUser={selectedUser}
-            chatInput={chatInput}
-            setChatInput={setChatInput}
-            onSendMessage={handleSendMessage}
-            onToggleChat={handleToggleChat}
-            receivedMessages={receivedMessages} // Hier übergeben Sie die empfangenen Nachrichten an die ChatComponent
-            sentMessages={sentMessages}
-
-
+              selectedUser={selectedUser ? selectedUser : {}}
             />
           )}
         </>
       )}
     </View>
   );
-};
-
-export default MapViewScreen;
+  };
+  
+  export default MapViewScreen;
+  
